@@ -28,7 +28,7 @@ EXCLUDE_PRICE_TIERS = ["デパコス"]
 
 TAG_NAMES = ["SNSで話題になりそう", "プチプラ"] + [t for t in TAG_WORDS if t != "SNSで話題になりそう"]
 COLUMNS = (
-    ["ブランド名", "商品名", "カテゴリ", "発売日", "価格", "商品概要", "情報元URL", "情報公開日"]
+    ["ブランド名", "商品名", "カテゴリ", "発売日", "発売状況", "価格", "商品概要", "情報元URL", "情報公開日"]
     + TAG_NAMES
     + ["タグの根拠", "種類", "メモ", "情報元", "ブランド一覧", "取得日"]
 )
@@ -109,6 +109,13 @@ def main():
         else:
             kept.append(r)
     rows = sorted(kept, key=lambda r: sort_key(r, today))
+    for r in rows:
+        d = r["_release_date"]
+        r["発売状況"] = "発売日不明" if d is None else ("発売予定" if d >= today else "発売済み")
+        # セルの中の改行は、アプリによって行が分かれて見えるので「 ／ 」でつなぐ
+        for k, v in r.items():
+            if isinstance(v, str) and "\n" in v:
+                r[k] = " ／ ".join(x for x in v.split("\n") if x)
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     out = OUTPUT_DIR / f"新作コスメ_{today:%Y%m%d}.csv"
