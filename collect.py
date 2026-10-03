@@ -19,6 +19,9 @@ from collector.tags import TAG_WORDS, tag
 JST = timezone(timedelta(hours=9))
 OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
+# CSV に載せるカテゴリ（ヘアケアを戻したいときは "ヘアケア" を書き足す）
+TARGET_CATEGORIES = ["スキンケア", "ベースメイク", "ポイントメイク", "美容家電"]
+
 TAG_NAMES = ["SNSで話題になりそう", "プチプラ"] + [t for t in TAG_WORDS if t != "SNSで話題になりそう"]
 COLUMNS = (
     ["ブランド名", "商品名", "カテゴリ", "発売日", "価格", "商品概要", "情報元URL", "情報公開日"]
@@ -64,6 +67,7 @@ def main():
         print(f"  → カレンダーの商品 {len(items)}件のうち、対象カテゴリ {len(cosme_rows)}件")
 
     rows = merge(pr_rows, cosme_rows, brand_book)
+    rows = [r for r in rows if r["カテゴリ"] in TARGET_CATEGORIES]
     rows.sort(key=lambda r: sort_key(r, today))
 
     for r in rows:
