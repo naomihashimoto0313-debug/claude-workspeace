@@ -21,6 +21,8 @@ OUTPUT_DIR = Path(__file__).resolve().parent / "output"
 
 # CSV に載せるカテゴリ（ヘアケアを戻したいときは "ヘアケア" を書き足す）
 TARGET_CATEGORIES = ["スキンケア", "ベースメイク", "ポイントメイク", "美容家電"]
+# CSV に載せない価格帯（ブランド一覧表の「価格帯」の列。戻したいときはここから消す）
+EXCLUDE_PRICE_TIERS = ["デパコス"]
 
 TAG_NAMES = ["SNSで話題になりそう", "プチプラ"] + [t for t in TAG_WORDS if t != "SNSで話題になりそう"]
 COLUMNS = (
@@ -80,6 +82,7 @@ def main():
         r["ブランド一覧"] = listed["状態"] if listed else "一覧外"
         r["取得日"] = f"{today:%Y/%m/%d}"
 
+    rows = [r for r in rows if not (r["_listed"] and r["_listed"]["価格帯"] in EXCLUDE_PRICE_TIERS)]
     total = len(rows)
     if not args.all:
         # ブランド一覧表（data/brands.csv）にあるブランドだけに絞る
