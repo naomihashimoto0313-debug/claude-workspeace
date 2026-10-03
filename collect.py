@@ -35,7 +35,7 @@ COLUMNS = (
 
 
 def sort_key(row, today):
-    """並び順：今日以降の発売予定（近い順）→ 発売済み（最近のもの順）→ 発売日不明。
+    """並び順：発売日の古い順（発売済み → 発売予定）。発売日不明は一番下。
     同じ発売日はブランド名 → 商品名の順。"""
     d = row["_release_date"]
     names = (
@@ -43,10 +43,8 @@ def sort_key(row, today):
         unicodedata.normalize("NFKC", row["商品名"]).lower(),
     )
     if d is None:
-        return (2, 0) + names
-    if d >= today:
-        return (0, (d - today).days) + names
-    return (1, (today - d).days) + names
+        return (1, 0) + names
+    return (0, d.toordinal()) + names
 
 
 def main():
