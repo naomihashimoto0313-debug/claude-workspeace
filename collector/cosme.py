@@ -6,11 +6,12 @@
 
 import json
 import re
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
 from . import http
-from .text import html_to_text, summarize
+from .text import ANIME_WORDS, html_to_text, summarize
 
 BASE = "https://www.cosme.net"
 CACHE = Path(__file__).resolve().parent.parent / "cache" / "cosme_products.json"
@@ -155,34 +156,61 @@ def _price(src):
 
 
 def to_rows(items, cache):
+    """(行のリスト, 除外した理由ごとの件数) を返す。"""
     rows = []
+    excluded = Counter()
     for it in items:
         info = cache.get(it["id"])
         if not info:
+            excluded["@cosmeの商品ページが開けなかった"] += 1
+            continue
+        paths = " / ".join(info["categories"])
+        if re.search(r"サプリメント|フード|保健機能食品|ドリンク", paths):
+            excluded["食品・サプリ"] += 1
+            continue
+        if ANIME_WORDS.search(it["name"]):
+            excluded["アニメ・キャラクター関連"] += 1
             continue
         category = map_category(info["categories"])
         if not category:
+            excluded["コスメ以外・対象外カテゴリ（ボディ・ネイル・香水・雑貨など）"] += 1
             continue
         price_label, price_min = _price(info["price"])
         # 商品ページの発売日は「最初に発売された日」のことがある（新色・限定品など）ので、
         # 今回の発売日としてカレンダーに載っている日付を使う
         rel = it["calendar_date"]
+        desc = info["description"]
+        memo = []
+        if "公式情報確認中" in desc or "メンバーさんによる登録" in desc:
+            desc = re.sub(r"こちらの商品情報は.*?詳細はこちら\s*", "", desc, flags=re.S)
+            memo.append("@cosmeの情報は公式確認前（メンバー登録）")
+        if "編集部調べ" in info["price"]:
+            memo.append("価格は@cosme編集部調べ")
+        first = re.match(r"(\d{4}/\d{1,2}/\d{1,2})\s*\(.*追加発売\)", info["release"])
+        if first:
+            kind_label = "新色・追加発売"
+            memo.append(f"既存商品の追加発売（最初の発売：{first.group(1)}）")
+        else:
+            kind_label = "新商品"
+        name = re.sub(r"\s*【[^】]*】\s*$", "", it["name"])  # 末尾の【医薬部外品】などを取る
         rows.append({
             "ブランド名": it["brand"],
-            "商品名": it["name"],
+            "商品名": name,
             "カテゴリ": category,
             "発売日": f"{rel:%Y/%m/%d}",
             "価格": price_label,
-            "商品概要": summarize(info["description"]),
+            "商品概要": summarize(desc),
             "情報元URL": f"{BASE}/products/{it['id']}/",
             "情報公開日": "",
             "情報元": "@cosme",
+            "種類": kind_label,
+            "メモ": "\n".join(memo),
             "_release_date": rel,
             "_price_min": price_min,
-            "_title": it["name"],
-            "_text": it["name"] + "\n" + info["description"],
+            "_title": name,
+            "_text": name + "\n" + desc,
             "_provider": "",
             "_published": None,
-            "_cosme_category": " / ".join(info["categories"]),
+            "_cosme_category": paths,
         })
-    return rows
+    return rows, excluded

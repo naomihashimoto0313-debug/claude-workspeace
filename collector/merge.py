@@ -21,6 +21,14 @@ def _absorb(keep, other):
     for col in ("発売日", "価格", "商品概要", "情報公開日"):
         if not keep[col] and other[col]:
             keep[col] = other[col]
+    # 種類は「新商品」より具体的なもの（新色・追加発売など）を残す
+    if keep.get("種類") == "新商品" and other.get("種類") not in (None, "新商品"):
+        keep["種類"] = other["種類"]
+    other_memo = other.get("メモ", "")
+    if keep["価格"]:
+        # keep 側の価格を使うので、other 側の価格についての注意書きは付けない
+        other_memo = "\n".join(l for l in other_memo.split("\n") if not l.startswith("価格"))
+    keep["メモ"] = _join(keep.get("メモ", ""), other_memo)
     if keep["_release_date"] is None:
         keep["_release_date"] = other["_release_date"]
     if keep["_price_min"] is None:

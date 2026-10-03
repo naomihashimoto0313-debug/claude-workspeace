@@ -43,13 +43,27 @@ NEW_PRODUCT_WORDS = re.compile(
 NOT_PRODUCT_WORDS = re.compile(
     r"調査|アンケート|セミナー|開催しました|開催レポート|受賞|決算|資金調達|採用|求人|"
     r"出店|オープン|ポップアップ|POP ?UP|イベント|キャンペーン|プレゼント|募集|提携|業務|就任|"
-    r"クリニック|サロン|施術|サプリ|医療|読み解く|解析|特集|フェス|Festival|バトル|開幕|紹介|出演|パーティ|研究|成功|開発|発表会|スタートアップ|レビュー"
+    r"クリニック|サロン|施術|サプリ|医療|読み解く|解析|特集|フェス|Festival|バトル|開幕|紹介|出演|パーティ|研究|成功|開発|発表会|スタートアップ|レビュー|"
+    r"ラウンジ|LOUNGE|施設|展示|体験|ワークショップ|ツアー"
+)
+# イベント・施設の話題（新商品の話が含まれていても対象外）
+EVENT_WORDS = re.compile(r"開催|パーティ|ラウンジ|LOUNGE|施設|ポップアップ|POP ?UP|ワークショップ|フェス")
+# 食品・飲み物
+FOOD_WORDS = re.compile(
+    r"食品|フード|ドリンク|飲料|グミ|お菓子|菓子|スイーツ|チョコレート|プロテイン|サプリ|青汁|"
+    r"お茶|コーヒー|紅茶|ジュース|ゼリー飲料|栄養|機能性表示"
+)
+# アニメ・キャラクター関連
+ANIME_WORDS = re.compile(
+    r"アニメ|キャラクター|ディズニー|Disney|サンリオ|ポケモン|ポケットモンスター|鬼滅|ちいかわ|ジブリ|"
+    r"ハローキティ|キティ|スヌーピー|ミッフィー|ムーミン|すみっコ|リラックマ|ドラえもん|呪術|ワンピース|"
+    r"映画|劇場版|漫画|マンガ|コミック|VTuber|ゲーム|ウマ娘|初音ミク"
 )
 # 今回の5カテゴリに入らないもの（タイトルにあれば対象外にする）
 OUT_OF_SCOPE = re.compile(
     r"ダンベル|シューズ|スニーカー|靴|家具|ステッパー|ウィッグ|かつら|ネイル|ボディ|ハンドクリーム|"
     r"バスト|フレグランス|香水|オードパルファン|オードトワレ|入浴剤|バスソルト|デオドラント|"
-    r"除毛|脱毛|歯磨き|オーラルケア|サプリ|ペット|下着|アパレル|ファッション|バッグ|ジュエリー"
+    r"除毛|脱毛|歯磨き|ネイル|オーラルケア|サプリ|ペット|下着|アパレル|ファッション|バッグ|ジュエリー"
 )
 # 顔・髪向けの商品であることを示す言葉（OUT_OF_SCOPE の言葉と一緒にあれば対象に戻す）
 IN_SCOPE_HINT = re.compile(
@@ -125,7 +139,7 @@ def find_release_date(text, base):
     text = unicodedata.normalize("NFKC", text)
     candidates = []
     for m in re.finditer(r"発売", text):
-        before = text[max(0, m.start() - 45): m.start()]
+        before = text[max(0, m.start() - 90): m.start()]
         after = text[m.end(): m.end() + 30]
         # 「〇月〇日（木）より発売」：発売の直前にある日付（いちばん近いもの）
         found = list(_DATE.finditer(before))
@@ -176,13 +190,33 @@ def _nums(matches):
     return out
 
 
+def _cluster(matches):
+    """最初に出てくる価格と、そのすぐ後（150文字以内）に続く価格だけを使う。
+
+    1つの記事に別の商品の価格も載っていることが多いため、文章全体の価格は使わない。
+    """
+    first = None
+    out = []
+    for m in matches:
+        if first is None:
+            first = m.start()
+        if m.start() - first > 150:
+            break
+        out.extend(_nums([m]))
+    return sorted(set(out))
+
+
 def find_price(text):
-    """価格を探す。(表示用文字列, いちばん安い税込価格 or None) を返す。"""
+    """価格を探す。(表示用文字列, いちばん安い価格 or None) を返す。"""
     text = unicodedata.normalize("NFKC", text)
-    inc = sorted(set(_nums(_PRICE_INC.finditer(text))))
+    # 「通常価格」が書いてあれば、セール価格より優先する
+    regular = _cluster(re.finditer(r"(?:通常価格|希望小売価格|定価)\s*[:：]?\s*[¥￥]?\s*([\d,]{3,7})\s*円?", text))
+    if regular:
+        return _fmt(regular, "税込" if "税込" in text else "税込/税抜不明"), regular[0]
+    inc = _cluster(_PRICE_INC.finditer(text))
     if inc:
         return _fmt(inc, "税込"), inc[0]
-    exc = sorted(set(_nums(_PRICE_EXC.finditer(text))))
+    exc = _cluster(_PRICE_EXC.finditer(text))
     if exc:
         return _fmt(exc, "税抜"), int(exc[0] * 1.1)
     if "オープン価格" in text:
