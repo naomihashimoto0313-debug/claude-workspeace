@@ -41,6 +41,7 @@ def main():
     ap.add_argument("--days", type=int, default=7, help="何日前までの情報を集めるか")
     ap.add_argument("--ahead", type=int, default=60, help="@cosme は発売日が何日先までの商品を集めるか")
     ap.add_argument("--no-cosme", action="store_true", help="@cosme からは集めない")
+    ap.add_argument("--all", action="store_true", help="ブランド一覧にないブランドも含めて全部保存する")
     args = ap.parse_args()
 
     now = datetime.now(JST)
@@ -66,13 +67,20 @@ def main():
     rows.sort(key=lambda r: sort_key(r, today))
 
     for r in rows:
-        listed = brand_book.find(r["ブランド名"])
+        listed = brand_book.match(r["ブランド名"], r["商品名"])
+        r["_listed"] = listed
         tags, reasons = tag(r, listed)
         for t in TAG_NAMES:
             r[t] = "○" if t in tags else ""
         r["タグの根拠"] = "\n".join(reasons)
         r["ブランド一覧"] = listed["状態"] if listed else "一覧外"
         r["取得日"] = f"{today:%Y/%m/%d}"
+
+    total = len(rows)
+    if not args.all:
+        # ブランド一覧表（data/brands.csv）にあるブランドだけに絞る
+        rows = [r for r in rows if r["_listed"]]
+        print(f"\nブランド一覧にあるブランドに絞りました：{total}件 → {len(rows)}件")
 
     OUTPUT_DIR.mkdir(exist_ok=True)
     out = OUTPUT_DIR / f"新作コスメ_{today:%Y%m%d}.csv"

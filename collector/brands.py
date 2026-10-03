@@ -39,6 +39,24 @@ class BrandBook:
                         best = (row, len(k))
         return best[0] if best else None
 
+    def match(self, brand_name, product_name=""):
+        """ブランド名が一覧表のブランドと「同じ」と言えるときだけ、表の1行を返す。
+
+        find() と違い、名前の一部だけ一致する場合（「コンフィー」と「フィー」など）は同じとみなさない。
+        """
+        names = [re.sub(r"[(（].*?[)）]", "", brand_name)] + re.findall(r"[(（]([^)）]+)[)）]", brand_name)
+        names = {normalize(n) for n in names if normalize(n)}
+        names.add(normalize(brand_name))
+        product = normalize(product_name)
+        for row, keys in self.rows:
+            for k in keys:
+                if k in names:
+                    return row
+                # 「SOFINA iP」「ソフィーナ プリマヴィスタ ○○」のように、名前の先頭がブランド名のとき
+                if len(k) >= 3 and (any(n.startswith(k) for n in names) or product.startswith(k)):
+                    return row
+        return None
+
     def key(self, brand_name):
         """重複判定に使うブランドの名前（一覧表にあれば表の名前にそろえる）。"""
         row = self.find(brand_name)

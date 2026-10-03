@@ -164,8 +164,9 @@ def to_rows(items, cache):
         if not category:
             continue
         price_label, price_min = _price(info["price"])
-        m = re.search(r"(\d{4})/(\d{1,2})/(\d{1,2})", info["release"])
-        rel = date(int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else it["calendar_date"]
+        # 商品ページの発売日は「最初に発売された日」のことがある（新色・限定品など）ので、
+        # 今回の発売日としてカレンダーに載っている日付を使う
+        rel = it["calendar_date"]
         rows.append({
             "ブランド名": it["brand"],
             "商品名": it["name"],
