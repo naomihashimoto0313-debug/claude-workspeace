@@ -120,8 +120,15 @@ def map_category(paths):
     for p in paths:
         top = p.split(" > ")[0]
         sub = p.split(" > ")[1] if " > " in p else ""
-        if "美容家電" in p or "美容機器" in p or "ドライヤー" in p or "ヘアアイロン" in p:
+        lower = " > ".join(p.split(" > ")[1:])
+        if re.search(r"美容家電|美容機器|美顔器|ドライヤー|ヘアアイロン|脱毛器", lower):
             return "美容家電"
+        if top.startswith("美容グッズ") or "ネイル" in sub:
+            continue  # メイクブラシ・つけまつげ・ネイルなどは対象外
+        if sub == "スキンケアキット":
+            return "スキンケア"
+        if sub == "メイクアップキット・パレット":
+            return "ポイントメイク"
         if top.startswith("スキンケア"):
             return "スキンケア"
         if top.startswith("ヘアケア"):
