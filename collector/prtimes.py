@@ -57,8 +57,6 @@ def exclude_reason(title, body):
     head = title + "\n" + body[:300]
     if FOOD_WORDS.search(title):
         return "食品・サプリ"
-    if ANIME_WORDS.search(title):
-        return "アニメ・キャラクター関連"
     if EVENT_WORDS.search(title):
         return "イベント・施設"
     if not NEW_PRODUCT_WORDS.search(head):
@@ -110,6 +108,8 @@ def to_rows(releases, brand_book):
         release_label, release_date = find_release_date(body, published.date())
         price_label, price_min = find_price(body)
         memo = []
+        if ANIME_WORDS.search(title) or "コラボ" in title:
+            memo.append("コラボ商品を含む発表（どの商品がコラボかは情報元で確認）")
         if re.search(r"期間限定価格|メガポ|メガ割|セール価格|特別価格", body[:1500]):
             memo.append("価格はセール・期間限定価格の可能性あり")
         rows.append({

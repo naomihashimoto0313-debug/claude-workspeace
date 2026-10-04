@@ -168,9 +168,6 @@ def to_rows(items, cache):
         if re.search(r"サプリメント|フード|保健機能食品|ドリンク", paths):
             excluded["食品・サプリ"] += 1
             continue
-        if ANIME_WORDS.search(it["name"]):
-            excluded["アニメ・キャラクター関連"] += 1
-            continue
         category = map_category(info["categories"])
         if not category:
             excluded["コスメ以外・対象外カテゴリ（ボディ・ネイル・香水・雑貨など）"] += 1
@@ -181,6 +178,8 @@ def to_rows(items, cache):
         rel = it["calendar_date"]
         desc = info["description"]
         memo = []
+        if ANIME_WORDS.search(it["name"]) or "コラボ" in it["name"] + desc[:200]:
+            memo.append("コラボ商品")
         if "公式情報確認中" in desc or "メンバーさんによる登録" in desc:
             desc = re.sub(r"こちらの商品情報は.*?詳細はこちら\s*", "", desc, flags=re.S)
             memo.append("@cosmeの情報は公式確認前（メンバー登録）")

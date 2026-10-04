@@ -106,7 +106,12 @@ _PRODUCT_HINT = re.compile(
 
 def products_from_title(title, brand=""):
     """タイトルのかぎかっこ「」『』の中から商品名らしいものを取り出す（最大3つ）。"""
-    names = re.findall(r"[「『“\"]([^」』”\"]{2,60})[」』”\"]", title)
+    names = []
+    for m in re.finditer(r"[「『“\"]([^」』”\"]{2,60})[」』”\"]", title):
+        # 『NANA』のような漫画・アニメ・映画などの作品名は商品名ではない
+        if re.search(r"漫画|マンガ|アニメ|映画|ドラマ|作品|小説|ゲーム", title[max(0, m.start() - 8): m.start()]):
+            continue
+        names.append(m.group(1))
     scored = []
     for n in dict.fromkeys(x.strip() for x in names):
         if re.fullmatch(r"[\d,.%％ ]+", n) or (brand and normalize(n) == normalize(brand)):

@@ -26,6 +26,7 @@ CATEGORY_KEYWORDS = {
         "リップ", "口紅", "ルージュ", "ティント", "グロス", "アイシャドウ", "アイシャドー",
         "アイライナー", "マスカラ", "アイブロウ", "眉マスカラ", "チーク", "ハイライター", "シェーディング",
         "アイパレット", "アイカラー", "ポイントメイク", "メイクパレット", "コフレ",
+        "まつ毛", "まつげ", "まつ育", "ラッシュ", "アイメイク", "リップメイク", "涙袋",
     ],
     "スキンケア": [
         "化粧水", "美容液", "乳液", "クリーム", "洗顔", "クレンジング", "パック",
@@ -190,14 +191,24 @@ def _nums(matches):
     return out
 
 
+def _is_condition(m):
+    """「4,000円（税込）以上ご購入で」のような購入条件・送料などの金額か。"""
+    after = m.string[m.end(): m.end() + 8]
+    before = m.string[max(0, m.start() - 12): m.start()]
+    return "以上" in after or "未満" in after or re.search(r"送料|合計|総額|累計|ポイント", before)
+
+
 def _cluster(matches):
     """最初に出てくる価格と、そのすぐ後（150文字以内）に続く価格だけを使う。
 
     1つの記事に別の商品の価格も載っていることが多いため、文章全体の価格は使わない。
+    「〇円以上ご購入で」のような購入条件の金額は使わない。
     """
     first = None
     out = []
     for m in matches:
+        if _is_condition(m):
+            continue
         if first is None:
             first = m.start()
         if m.start() - first > 150:
