@@ -73,8 +73,21 @@ def main():
         start, end = today - timedelta(days=args.days), today + timedelta(days=args.ahead)
         print(f"@cosme：発売日が {start:%Y/%m/%d}〜{end:%Y/%m/%d} の商品を集めます")
         items = cosme.fetch_calendar(start, end)
-        cache = cosme.fetch_products(items)
-        cosme_rows, ex = cosme.to_rows(items, cache)
+        if not args.all:
+            # ブランド一覧にないブランドの商品ページは開かない（時間短縮。どのみち最後に除外される）
+            fetch_items = []
+            for it in items:
+                listed = brand_book.match(it["brand"], it["name"])
+                if not listed:
+                    excluded["ブランド一覧にないブランド"] += 1
+                elif listed["価格帯"] in EXCLUDE_PRICE_TIERS:
+                    excluded["デパコスのブランド"] += 1
+                else:
+                    fetch_items.append(it)
+        else:
+            fetch_items = items
+        cache = cosme.fetch_products(fetch_items)
+        cosme_rows, ex = cosme.to_rows(fetch_items, cache)
         excluded.update(ex)
         print(f"  → カレンダーの商品 {len(items)}件のうち、対象カテゴリ {len(cosme_rows)}件")
 

@@ -98,6 +98,14 @@ def card(row, star):
     )
 
 
+# 「新色・追加発売」の欄に入れる種類（それ以外は「新商品」の欄）
+ADDITIONAL_KINDS = ("新色・追加発売", "新色", "リニューアル", "定番化", "再販")
+
+
+def is_additional(row):
+    return row.get("種類") in ADDITIONAL_KINDS
+
+
 def build(rows, summary_text, date_label):
     status = Counter(r["発売状況"] for r in rows)
     tag_counts = {t: sum(r.get(t) == "○" for r in rows) for t in TAGS}
@@ -107,28 +115,41 @@ def build(rows, summary_text, date_label):
     parts = [
         f'<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body><div class="w">',
         f'<div class="h1">新作コスメ情報（{e(date_label)}）</div>',
-        f'<div class="sub">全 <b>{len(rows)}件</b>（発売予定 {status.get("発売予定", 0)}件 ／ 発売済み {status.get("発売済み", 0)}件{unknown}）</div>',
+        f'<div class="sub">全 <b>{len(rows)}件</b>（新商品 {sum(not is_additional(r) for r in rows)}件 ／ '
+        f'新色・追加発売 {sum(is_additional(r) for r in rows)}件）<br>'
+        f'発売予定 {status.get("発売予定", 0)}件 ／ 発売済み {status.get("発売済み", 0)}件{unknown}</div>',
         '<div style="margin-top:8px">'
         + "".join(f'<span class="t t{i}">{e(t)} {n}件</span>' for i, (t, n) in enumerate(tag_counts.items()))
         + "</div>",
     ]
     if pickup:
         parts.append(f'<div class="sec pk">★ 記事にしやすい候補（タグ{PICKUP_MIN_TAGS}つ以上）</div>')
-        parts.append('<div class="note">くわしくは下の一覧の「★記事候補」を見てください。</div>')
+        parts.append('<div class="note">くわしくは下の一覧の「★記事候補」を見てください。新色・追加発売の商品も含みます。</div>')
         for r in pickup:
             parts.append(
                 f'<div class="pl"><b>{e(r["発売日"] or "発売日不明")}</b>　{e(r["ブランド名"])}　'
                 f'<b>{e(r["商品名"])}</b><br>{tag_badges(r)}</div>'
             )
-    parts.append('<div class="sec">発売日順の一覧</div>')
-    current_month = None
-    for r in rows:
-        m = re.match(r"(\d{4})/(\d{2})", r["発売日"])
-        month = f"{int(m.group(2))}月" if m else "発売日不明"
-        if month != current_month:
-            current_month = month
-            parts.append(f'<div class="mon">― {e(month)} ―</div>')
-        parts.append(card(r, n_tags(r) >= PICKUP_MIN_TAGS))
+    new_items = [r for r in rows if not is_additional(r)]
+    additional = [r for r in rows if is_additional(r)]
+    sections = [
+        ("新商品", "", new_items),
+        ("新色・追加発売", "既存商品の新色・限定色・リニューアル・再販など。", additional),
+    ]
+    for title, note, items in sections:
+        parts.append(f'<div class="sec">{e(title)}（{len(items)}件）</div>')
+        if note:
+            parts.append(f'<div class="note">{e(note)}</div>')
+        if not items:
+            parts.append('<div class="note">今回はありません。</div>')
+        current_month = None
+        for r in items:
+            m = re.match(r"(\d{4})/(\d{2})", r["発売日"])
+            month = f"{int(m.group(2))}月" if m else "発売日不明"
+            if month != current_month:
+                current_month = month
+                parts.append(f'<div class="mon">― {e(month)} ―</div>')
+            parts.append(card(r, n_tags(r) >= PICKUP_MIN_TAGS))
     parts.append(
         '<div class="f"><b>ご注意</b><br>'
         "・ブランド名・価格・発売日・タグは自動で読み取っています。記事にする前に必ず情報元で確認してください。<br>"
